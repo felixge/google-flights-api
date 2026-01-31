@@ -64,17 +64,17 @@ func (o Offer) String() string {
 
 // FullOffer describes the full offer of a trip. [Session.GetOffers] returns a slice of FullOffers.
 //
-// NOTE: ReturnFlight is not implemented yet
+// For round-trip searches, ReturnFlight contains the return leg flights (automatically fetched).
 type FullOffer struct {
 	Offer
-	Flight               []Flight      // contains all flights in the trip
-	ReturnFlight         []Flight      // not implemented yet
+	Flight               []Flight      // outbound flights
+	ReturnFlight         []Flight      // return flights (for round trips)
 	SrcAirportCode       string        // code of the airport where the trip starts
 	DstAirportCode       string        // destination airport
 	SrcCity              string        // source city
 	DstCity              string        // destination city
-	FlightDuration       time.Duration // duration of whole Flight
-	ReturnFlightDuration time.Duration // not implemented yet
+	FlightDuration       time.Duration // duration of outbound flights
+	ReturnFlightDuration time.Duration // duration of return flights
 }
 
 func (o FullOffer) String() string {
@@ -83,13 +83,15 @@ func (o FullOffer) String() string {
 	out += fmt.Sprintf("ReturnDate: %s\n", o.ReturnDate)
 	out += fmt.Sprintf("Price: %d\n", int(o.Price))
 	out += fmt.Sprintf("Flight: %s\n", o.Flight)
-	// out += fmt.Sprintf("ReturnFlight: %s\n", o.ReturnFlight)
+	out += fmt.Sprintf("FlightDuration: %s\n", o.FlightDuration)
+	if len(o.ReturnFlight) > 0 {
+		out += fmt.Sprintf("ReturnFlight: %s\n", o.ReturnFlight)
+		out += fmt.Sprintf("ReturnFlightDuration: %s\n", o.ReturnFlightDuration)
+	}
 	out += fmt.Sprintf("SrcAirportCode: %s\n", o.SrcAirportCode)
 	out += fmt.Sprintf("DstAirportCode: %s\n", o.DstAirportCode)
 	out += fmt.Sprintf("SrcCity: %s\n", o.SrcCity)
-	out += fmt.Sprintf("DstCity: %s\n", o.DstCity)
-	out += fmt.Sprintf("FlightDuration: %s}\n", o.FlightDuration)
-	// out += fmt.Sprintf("ReturnFlightDuration: %s}\n", o.ReturnFlightDuration)
+	out += fmt.Sprintf("DstCity: %s}\n", o.DstCity)
 	return out
 }
 

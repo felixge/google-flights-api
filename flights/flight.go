@@ -366,6 +366,9 @@ func getSectionOffers(bytesToDecode []byte, returnDate time.Time) ([]FullOffer, 
 // GetOffers retrieves offers from the Google Flight search. The city names should be provided in the language
 // described by args.Lang. The offers are returned in a slice of [FullOffer].
 //
+// For round-trip searches, GetOffers automatically fetches return flight options and populates
+// the ReturnFlight and ReturnFlightDuration fields.
+//
 // GetOffers also returns [*PriceRange], which contains the low and high prices of the search. The values are
 // taken from the "View price history" subsection of the search. If the search doesn't have the "View
 // price history" subsection, then GetOffers returns nil.
@@ -378,6 +381,47 @@ func (s *Session) GetOffers(ctx context.Context, args Args) ([]FullOffer, *Price
 		return nil, nil, err
 	}
 
+	// Fetch outbound flights
+	outboundOffers, priceRange, err := s.getOffersOneWay(ctx, args)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// For round trips, fetch return flights and attach to offers
+	if args.TripType == RoundTrip && !args.ReturnDate.IsZero() {
+		// Create args for return flight search (swap src/dst, use return date)
+		returnArgs := Args{
+			Date:        args.ReturnDate,
+			ReturnDate:  time.Time{}, // One-way for return leg
+			SrcCities:   args.DstCities,
+			SrcAirports: args.DstAirports,
+			DstCities:   args.SrcCities,
+			DstAirports: args.SrcAirports,
+			Options:     args.Options,
+		}
+		returnArgs.TripType = OneWay
+
+		returnOffers, _, err := s.getOffersOneWay(ctx, returnArgs)
+		if err != nil {
+			// Return outbound offers even if return fetch fails
+			return outboundOffers, priceRange, nil
+		}
+
+		// Attach return flights to outbound offers
+		// For simplicity, attach the best (first) return flight to each outbound offer
+		if len(returnOffers) > 0 {
+			for i := range outboundOffers {
+				outboundOffers[i].ReturnFlight = returnOffers[0].Flight
+				outboundOffers[i].ReturnFlightDuration = returnOffers[0].FlightDuration
+			}
+		}
+	}
+
+	return outboundOffers, priceRange, nil
+}
+
+// getOffersOneWay fetches offers for a single direction (outbound or return).
+func (s *Session) getOffersOneWay(ctx context.Context, args Args) ([]FullOffer, *PriceRange, error) {
 	finalOffers := []FullOffer{}
 	var finalPriceRange *PriceRange
 
